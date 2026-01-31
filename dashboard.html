@@ -48,6 +48,7 @@
       border-radius: 16px;
       box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
       border: 1px solid var(--border);
+      position: relative;
     }
     .timer-card {
       grid-column: span 2;
@@ -68,28 +69,40 @@
       border-color: var(--primary); 
       box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); 
     }
+    input:disabled {
+      background: #f1f5f9;
+      cursor: not-allowed;
+      color: #94a3b8;
+    }
     
     button {
       cursor: pointer; padding: 12px 24px; border-radius: 10px;
       font-weight: 600; border: none; transition: all 0.2s;
     }
     button:active { transform: scale(0.98); }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
 
     .btn-primary { background: var(--primary); color: white; width: 100%; font-size: 1.1rem; }
-    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
 
     .btn-secondary { background: #f1f5f9; color: #475569; }
-    .btn-secondary:hover { background: #e2e8f0; }
+    .btn-secondary:hover:not(:disabled) { background: #e2e8f0; }
 
     .btn-danger { background: var(--danger); color: white; width: 100%; margin-top: 20px; }
-    .btn-danger:hover { background: #dc2626; }
     
     .list { height: 250px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; margin-top: 10px; }
     .list-item {
       display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;
       border-bottom: 1px solid var(--border);
     }
-    .list-item:hover { background: #f8fafc; }
+    .list-item:hover:not(.locked-item) { background: #f8fafc; }
+    
+    .locked-item { background: #f8fafc; color: #94a3b8; }
+    .locked-item .remove-x { display: none; }
+
     .remove-x { color: #94a3b8; cursor: pointer; font-size: 1.2rem; line-height: 1; }
     .remove-x:hover { color: var(--danger); }
 
@@ -100,6 +113,14 @@
     #statusLabel {
       padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 700;
       transition: all 0.3s ease;
+    }
+
+    .lock-overlay-msg {
+        font-size: 0.7rem;
+        color: var(--danger);
+        font-weight: 700;
+        margin-top: 5px;
+        text-align: center;
     }
 
     @keyframes pulse {
@@ -144,6 +165,7 @@
           <input type="text" id="siteInput" placeholder="e.g. youtube.com">
           <button class="btn-secondary" id="addSite">Add</button>
         </div>
+        <div id="siteLockMsg" class="lock-overlay-msg hidden">LIST LOCKED DURING FOCUS</div>
         <div class="list" id="siteList"></div>
       </div>
 
@@ -153,6 +175,7 @@
           <input type="text" id="keywordInput" placeholder="e.g. news, shorts">
           <button class="btn-secondary" id="addKeyword">Add</button>
         </div>
+        <div id="keywordLockMsg" class="lock-overlay-msg hidden">LIST LOCKED DURING FOCUS</div>
         <div class="list" id="keywordList"></div>
       </div>
     </div>

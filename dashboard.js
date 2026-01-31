@@ -16,35 +16,40 @@ const UI = {
   statusLabel: document.getElementById('statusLabel'),
   setupError: document.getElementById('setupError'),
   stopError: document.getElementById('stopError'),
-  sessionIndicator: document.getElementById('sessionIndicator')
+  sessionIndicator: document.getElementById('sessionIndicator'),
+  siteLockMsg: document.getElementById('siteLockMsg'),
+  keywordLockMsg: document.getElementById('keywordLockMsg')
 };
+
+let isCurrentlyFocusing = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
   setupEventListeners();
   loadData();
   updateUIState();
-  // Sync the timer every second
   setInterval(updateUIState, 1000);
 });
 
 function setupEventListeners() {
-  // Add Website Button
-  UI.addSiteBtn.addEventListener('click', () => addToList('siteInput', 'blockedSites'));
+  UI.addSiteBtn.addEventListener('click', () => {
+      if (isCurrentlyFocusing) return;
+      addToList('siteInput', 'blockedSites');
+  });
   
-  // Add Keyword Button
-  UI.addKeywordBtn.addEventListener('click', () => addToList('keywordInput', 'blockedKeywords'));
+  UI.addKeywordBtn.addEventListener('click', () => {
+      if (isCurrentlyFocusing) return;
+      addToList('keywordInput', 'blockedKeywords');
+  });
 
-  // Allow "Enter" key for inputs
   [UI.siteInput, UI.keywordInput].forEach(el => {
     el.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' && !isCurrentlyFocusing) {
         const target = el.id === 'siteInput' ? 'blockedSites' : 'blockedKeywords';
         addToList(el.id, target);
       }
     });
   });
 
-  // Start Focus Button
   UI.startBtn.addEventListener('click', async () => {
     const mins = parseInt(UI.focusInput.value);
     const pass = UI.emergencyPass.value.trim();
@@ -55,14 +60,12 @@ function setupEventListeners() {
     }
 
     UI.setupError.style.display = 'none';
-    // Clear setup fields
     UI.emergencyPass.value = ''; 
     
     await chrome.storage.local.set({ unlockPhrase: pass });
     chrome.runtime.sendMessage({ action: 'start_focus', minutes: mins });
   });
 
-  // Emergency Stop Button
   UI.stopBtn.addEventListener('click', async () => {
     const inputPass = UI.stopPassInput.value.trim();
     const data = await chrome.storage.local.get(['unlockPhrase']);
@@ -73,7 +76,6 @@ function setupEventListeners() {
       chrome.runtime.sendMessage({ action: 'stop_focus' });
     } else {
       UI.stopError.style.display = 'block';
-      // Visual feedback for error
       UI.stopPassInput.animate([
         { transform: 'translateX(-5px)' },
         { transform: 'translateX(5px)' },
@@ -93,10 +95,11 @@ function renderList(container, items, storageKey) {
   container.innerHTML = '';
   items.forEach((item, index) => {
     const div = document.createElement('div');
-    div.className = 'list-item';
+    div.className = `list-item ${isCurrentlyFocusing ? 'locked-item' : ''}`;
     div.innerHTML = `<span>${item}</span><span class="remove-x" data-idx="${index}">×</span>`;
     
     div.querySelector('.remove-x').addEventListener('click', async () => {
+      if (isCurrentlyFocusing) return; // Strict block
       const data = await chrome.storage.local.get([storageKey]);
       const list = data[storageKey] || [];
       list.splice(index, 1);
@@ -109,6 +112,7 @@ function renderList(container, items, storageKey) {
 }
 
 async function addToList(inputId, storageKey) {
+  if (isCurrentlyFocusing) return;
   const inputEl = document.getElementById(inputId);
   const val = inputEl.value.trim().toLowerCase();
   if (!val) return;
@@ -126,25 +130,37 @@ async function addToList(inputId, storageKey) {
 
 async function updateUIState() {
   const state = await chrome.storage.local.get(['isFocusing', 'endTime']);
+  const wasFocusing = isCurrentlyFocusing;
+  isCurrentlyFocusing = !!state.isFocusing;
+
+  // If focus state changed, re-render the lists to show/hide remove buttons
+  if (wasFocusing !== isCurrentlyFocusing) {
+      loadData();
+  }
   
-  if (state.isFocusing) {
+  if (isCurrentlyFocusing) {
     const remaining = Math.max(0, state.endTime - Date.now());
     const mins = Math.floor(remaining / 60000);
     const secs = Math.floor((remaining % 60000) / 1000);
     
     UI.timeDisplay.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    
-    // UI Transitions
     UI.setupControls.classList.add('hidden');
     UI.activeControls.classList.remove('hidden');
     
-    // Status Badge Logic
     UI.statusLabel.innerText = "FOCUS ACTIVE";
     UI.statusLabel.style.background = "#10b981";
     UI.statusLabel.style.color = "white";
     UI.statusLabel.classList.add('pulse');
     
     UI.sessionIndicator.innerText = "TIME TO WORK";
+
+    // Disable Editing
+    UI.addSiteBtn.disabled = true;
+    UI.addKeywordBtn.disabled = true;
+    UI.siteInput.disabled = true;
+    UI.keywordInput.disabled = true;
+    UI.siteLockMsg.classList.remove('hidden');
+    UI.keywordLockMsg.classList.remove('hidden');
 
     if (remaining <= 0) {
        chrome.runtime.sendMessage({ action: 'check_status' });
@@ -161,5 +177,13 @@ async function updateUIState() {
     
     UI.sessionIndicator.innerText = "READY TO FOCUS";
     UI.stopError.style.display = 'none';
+
+    // Enable Editing
+    UI.addSiteBtn.disabled = false;
+    UI.addKeywordBtn.disabled = false;
+    UI.siteInput.disabled = false;
+    UI.keywordInput.disabled = false;
+    UI.siteLockMsg.classList.add('hidden');
+    UI.keywordLockMsg.classList.add('hidden');
   }
 }
