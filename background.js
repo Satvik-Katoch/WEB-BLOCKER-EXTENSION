@@ -13,6 +13,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
+// --- ANTI-CHEAT LOGIC ---
+// This listens for any tab updates and redirects if you try to access extensions
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    const state = await chrome.storage.local.get(['isFocusing']);
+    
+    // Check if we are in Focus Mode and the user is trying to access settings/extensions
+    if (state.isFocusing && changeInfo.url) {
+        const forbiddenPages = [
+            'chrome://extensions',
+            'chrome://settings',
+            'chrome://history' // no-more history deletions during focus mode :)
+        ];
+
+        const isForbidden = forbiddenPages.some(page => changeInfo.url.startsWith(page));
+
+        if (isForbidden) {
+            // Redirect them back to the dashboard!
+            chrome.tabs.update(tabId, { url: 'dashboard.html' });
+        }
+    }
+});
+
 async function startFocus(minutes) {
     const endTime = Date.now() + (minutes * 60 * 1000);
     await chrome.storage.local.set({ isFocusing: true, endTime: endTime });
@@ -76,6 +98,5 @@ async function checkTimer() {
 chrome.runtime.onStartup.addListener(checkTimer);
 chrome.runtime.onInstalled.addListener(() => {
     chrome.storage.local.set({ isFocusing: false, blockedSites: [], blockedKeywords: [] });
-    // Open dashboard immediately on install
     chrome.tabs.create({ url: 'dashboard.html' });
 });
