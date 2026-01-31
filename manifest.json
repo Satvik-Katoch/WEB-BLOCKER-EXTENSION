@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "FocusMode Plus",
+  "version": "1.2",
+  "description": "Block websites and keywords with a full-screen focus dashboard.",
+  "permissions": ["declarativeNetRequest", "storage", "alarms", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Open Focus Dashboard"
+  },
+  "options_page": "dashboard.html"
+}
